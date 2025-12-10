@@ -88,6 +88,31 @@ class CarProvider extends ChangeNotifier {
   int _chargeLimit = 80; // Percentage
   int _odometer = 12543; // km
 
+  // Media Player
+  bool _isPlaying = false;
+  int _currentTrackIndex = 0;
+  double _volume = 50.0; // 0-100%
+  String _mediaSource = 'Spotify'; // Spotify, Bluetooth, Radio
+
+  // Radio stations
+  int _currentRadioStationIndex = 0;
+  final List<Map<String, String>> _radioStations = [
+    {'frequency': '88.1', 'name': 'Hot FM'},
+    {'frequency': '94.5', 'name': 'Era FM'},
+    {'frequency': '98.8', 'name': 'Hitz FM'},
+    {'frequency': '101.8', 'name': 'Fly FM'},
+    {'frequency': '104.9', 'name': 'Mix FM'},
+    {'frequency': '107.5', 'name': 'Sinar FM'},
+  ];
+
+  final List<Map<String, String>> _tracks = [
+    {'title': 'Electric Dreams', 'artist': 'Neon Waves'},
+    {'title': 'Highway Thunder', 'artist': 'Circuit Breakers'},
+    {'title': 'Midnight Drive', 'artist': 'Synthwave City'},
+    {'title': 'Turbo Nights', 'artist': 'Velocity'},
+    {'title': 'Chrome Horizon', 'artist': 'Digital Highway'},
+  ];
+
   // Getters - Basic
   bool get isLocked => _isLocked;
   bool get isAuthenticated => _isAuthenticated;
@@ -172,6 +197,20 @@ class CarProvider extends ChangeNotifier {
   int get chargeLimit => _chargeLimit;
   int get odometer => _odometer;
 
+  // Getters - Media
+  bool get isPlaying => _isPlaying;
+  int get currentTrackIndex => _currentTrackIndex;
+  double get volume => _volume;
+  String get mediaSource => _mediaSource;
+  List<Map<String, String>> get tracks => _tracks;
+  Map<String, String> get currentTrack => _tracks[_currentTrackIndex];
+
+  // Radio getters
+  int get currentRadioStationIndex => _currentRadioStationIndex;
+  List<Map<String, String>> get radioStations => _radioStations;
+  Map<String, String> get currentRadioStation =>
+      _radioStations[_currentRadioStationIndex];
+
   // Initialize provider - load saved data
   Future<void> initialize() async {
     _emergencyContacts = await StorageService.loadEmergencyContacts();
@@ -205,6 +244,7 @@ class CarProvider extends ChangeNotifier {
       orElse: () => RegisteredKad(
         kadNumber: '',
         ownerName: '',
+        dateOfBirth: DateTime.now(), // Placeholder for non-existent KAD
         firstRegistered: DateTime.now(),
         lastAccessed: DateTime.now(),
         isOwner: false,
@@ -239,9 +279,16 @@ class CarProvider extends ChangeNotifier {
     required String name,
     required bool isOwner,
   }) async {
+    // Extract date of birth from MyKAD number
+    final dateOfBirth = RegisteredKad.extractDateOfBirth(kadNumber);
+    if (dateOfBirth == null) {
+      throw Exception('Invalid MyKAD number format');
+    }
+
     final kad = RegisteredKad(
       kadNumber: kadNumber,
       ownerName: name,
+      dateOfBirth: dateOfBirth,
       firstRegistered: DateTime.now(),
       lastAccessed: DateTime.now(),
       isOwner: isOwner,
@@ -519,6 +566,12 @@ class CarProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void openAllDoors() {
+    if (!_isAuthenticated) return;
+    _doorFL = _doorFR = _doorRL = _doorRR = true;
+    notifyListeners();
+  }
+
   // Individual Window Controls
   void setWindowPosition(String position, double percentage) {
     if (!_isAuthenticated || _isLocked) return;
@@ -664,6 +717,52 @@ class CarProvider extends ChangeNotifier {
 
   void setChargeLimit(int percentage) {
     _chargeLimit = percentage.clamp(50, 100);
+    notifyListeners();
+  }
+
+  // Media Controls
+  void togglePlayPause() {
+    _isPlaying = !_isPlaying;
+    notifyListeners();
+  }
+
+  void nextTrack() {
+    _currentTrackIndex = (_currentTrackIndex + 1) % _tracks.length;
+    notifyListeners();
+  }
+
+  void previousTrack() {
+    _currentTrackIndex =
+        (_currentTrackIndex - 1 + _tracks.length) % _tracks.length;
+    notifyListeners();
+  }
+
+  void setVolume(double value) {
+    _volume = value.clamp(0.0, 100.0);
+    notifyListeners();
+  }
+
+  void setMediaSource(String source) {
+    _mediaSource = source;
+    notifyListeners();
+  }
+
+  // Radio Controls
+  void nextRadioStation() {
+    _currentRadioStationIndex =
+        (_currentRadioStationIndex + 1) % _radioStations.length;
+    notifyListeners();
+  }
+
+  void previousRadioStation() {
+    _currentRadioStationIndex =
+        (_currentRadioStationIndex - 1 + _radioStations.length) %
+        _radioStations.length;
+    notifyListeners();
+  }
+
+  void setRadioStation(int index) {
+    _currentRadioStationIndex = index.clamp(0, _radioStations.length - 1);
     notifyListeners();
   }
 

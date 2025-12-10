@@ -7,6 +7,6 @@ void main() {
     await tester.pumpWidget(const CarApp());
 
     // Verify that the dashboard shows up
-    expect(find.text('SU7 CONTROL'), findsOneWidget);
+    expect(find.text('AUTOFLUX'), findsOneWidget);
   });
 }

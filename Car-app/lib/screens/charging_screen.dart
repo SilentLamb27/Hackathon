@@ -219,13 +219,6 @@ class ChargingScreen extends StatelessWidget {
                         letterSpacing: 1,
                       ),
                     ),
-                    Text(
-                      'SCHEDULE CHARGING',
-                      style: AppTextStyles.body1.copyWith(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
                   ],
                 ),
               ),

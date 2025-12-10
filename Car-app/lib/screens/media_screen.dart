@@ -1,22 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_design_system.dart';
+import '../providers/car_provider.dart';
 
 /// Media Control Screen - Tesla Style
-class MediaScreen extends StatefulWidget {
+class MediaScreen extends StatelessWidget {
   const MediaScreen({super.key});
 
   @override
-  State<MediaScreen> createState() => _MediaScreenState();
-}
-
-class _MediaScreenState extends State<MediaScreen> {
-  bool _isPlaying = false;
-  double _volume = 50.0;
-  final String _songTitle = 'Electric Dreams';
-  final String _artist = 'Neon Waves';
-
-  @override
   Widget build(BuildContext context) {
+    final carProvider = Provider.of<CarProvider>(context);
+    final isRadio = carProvider.mediaSource == 'Radio';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -34,7 +29,7 @@ class _MediaScreenState extends State<MediaScreen> {
             children: [
               const SizedBox(height: 20),
 
-              // Album Art Placeholder
+              // Album Art / Radio Icon
               Container(
                 width: 250,
                 height: 250,
@@ -51,7 +46,7 @@ class _MediaScreenState extends State<MediaScreen> {
                   ],
                 ),
                 child: Icon(
-                  Icons.album,
+                  isRadio ? Icons.radio : Icons.album,
                   size: 120,
                   color: const Color(0xFF333333),
                 ),
@@ -59,24 +54,44 @@ class _MediaScreenState extends State<MediaScreen> {
 
               const SizedBox(height: 40),
 
-              // Song Info
-              Text(
-                _songTitle,
-                style: AppTextStyles.heading2.copyWith(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              // Display Info (Radio Station or Song)
+              if (isRadio) ...[
+                Text(
+                  'FM ${carProvider.currentRadioStation['frequency']}',
+                  style: AppTextStyles.heading2.copyWith(
+                    color: Colors.white,
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _artist,
-                style: AppTextStyles.body2.copyWith(
-                  color: const Color(0xFF6B7280),
-                  fontSize: 16,
+                const SizedBox(height: 8),
+                Text(
+                  carProvider.currentRadioStation['name'] ?? 'Radio',
+                  style: AppTextStyles.body2.copyWith(
+                    color: const Color(0xFF6B7280),
+                    fontSize: 16,
+                  ),
                 ),
-              ),
+              ] else ...[
+                Text(
+                  carProvider.currentTrack['title'] ?? 'Unknown',
+                  style: AppTextStyles.heading2.copyWith(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  carProvider.currentTrack['artist'] ?? 'Unknown Artist',
+                  style: AppTextStyles.body2.copyWith(
+                    color: const Color(0xFF6B7280),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 40),
 
@@ -85,8 +100,40 @@ class _MediaScreenState extends State<MediaScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.skip_previous),
+                    onPressed: () {
+                      if (isRadio) {
+                        carProvider.previousRadioStation();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'FM ${carProvider.currentRadioStation['frequency']} - ${carProvider.currentRadioStation['name']}',
+                              style: AppTextStyles.body1.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFF64FFDA),
+                            duration: const Duration(milliseconds: 1200),
+                          ),
+                        );
+                      } else {
+                        carProvider.previousTrack();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Previous: ${carProvider.currentTrack['title']}',
+                              style: AppTextStyles.body1.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFF64FFDA),
+                            duration: const Duration(milliseconds: 1200),
+                          ),
+                        );
+                      }
+                    },
+                    icon: Icon(
+                      isRadio ? Icons.arrow_back : Icons.skip_previous,
+                    ),
                     color: Colors.white,
                     iconSize: 48,
                   ),
@@ -111,10 +158,10 @@ class _MediaScreenState extends State<MediaScreen> {
                     ),
                     child: IconButton(
                       onPressed: () {
-                        setState(() => _isPlaying = !_isPlaying);
+                        carProvider.togglePlayPause();
                       },
                       icon: Icon(
-                        _isPlaying ? Icons.pause : Icons.play_arrow,
+                        carProvider.isPlaying ? Icons.pause : Icons.play_arrow,
                         color: Colors.black,
                       ),
                       iconSize: 40,
@@ -122,8 +169,38 @@ class _MediaScreenState extends State<MediaScreen> {
                   ),
                   const SizedBox(width: 24),
                   IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.skip_next),
+                    onPressed: () {
+                      if (isRadio) {
+                        carProvider.nextRadioStation();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'FM ${carProvider.currentRadioStation['frequency']} - ${carProvider.currentRadioStation['name']}',
+                              style: AppTextStyles.body1.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFF64FFDA),
+                            duration: const Duration(milliseconds: 1200),
+                          ),
+                        );
+                      } else {
+                        carProvider.nextTrack();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Next: ${carProvider.currentTrack['title']}',
+                              style: AppTextStyles.body1.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFF64FFDA),
+                            duration: const Duration(milliseconds: 1200),
+                          ),
+                        );
+                      }
+                    },
+                    icon: Icon(isRadio ? Icons.arrow_forward : Icons.skip_next),
                     color: Colors.white,
                     iconSize: 48,
                   ),
@@ -155,11 +232,11 @@ class _MediaScreenState extends State<MediaScreen> {
                               trackHeight: 4,
                             ),
                             child: Slider(
-                              value: _volume,
+                              value: carProvider.volume,
                               min: 0,
                               max: 100,
                               onChanged: (value) {
-                                setState(() => _volume = value);
+                                carProvider.setVolume(value);
                               },
                             ),
                           ),
@@ -168,7 +245,7 @@ class _MediaScreenState extends State<MediaScreen> {
                       ],
                     ),
                     Text(
-                      'Volume: ${_volume.toInt()}%',
+                      'Volume: ${carProvider.volume.toInt()}%',
                       style: AppTextStyles.caption.copyWith(
                         color: const Color(0xFF6B7280),
                         fontSize: 12,
@@ -184,14 +261,31 @@ class _MediaScreenState extends State<MediaScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildSourceButton('Bluetooth', Icons.bluetooth),
+                    child: _buildSourceButton(
+                      context,
+                      carProvider,
+                      'Bluetooth',
+                      Icons.bluetooth,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildSourceButton('Spotify', Icons.music_note),
+                    child: _buildSourceButton(
+                      context,
+                      carProvider,
+                      'Spotify',
+                      Icons.music_note,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildSourceButton('Radio', Icons.radio)),
+                  Expanded(
+                    child: _buildSourceButton(
+                      context,
+                      carProvider,
+                      'Radio',
+                      Icons.radio,
+                    ),
+                  ),
                 ],
               ),
 
@@ -203,22 +297,64 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
-  Widget _buildSourceButton(String label, IconData icon) {
-    return OutlinedButton(
-      onPressed: () {},
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white70,
-        side: BorderSide(color: Colors.grey[700]!),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 24),
-          const SizedBox(height: 4),
-          Text(label, style: AppTextStyles.caption.copyWith(fontSize: 12)),
-        ],
+  Widget _buildSourceButton(
+    BuildContext context,
+    CarProvider carProvider,
+    String label,
+    IconData icon,
+  ) {
+    final isActive = carProvider.mediaSource == label;
+
+    return SizedBox(
+      height: 80,
+      child: OutlinedButton(
+        onPressed: () {
+          carProvider.setMediaSource(label);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Switched to $label',
+                style: AppTextStyles.body1.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              backgroundColor: const Color(0xFF64FFDA),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        },
+        style: OutlinedButton.styleFrom(
+          foregroundColor: isActive ? const Color(0xFF64FFDA) : Colors.white70,
+          side: BorderSide(
+            color: isActive ? const Color(0xFF64FFDA) : const Color(0xFF2a2a2a),
+            width: 2,
+          ),
+          backgroundColor: isActive
+              ? const Color(0xFF64FFDA).withOpacity(0.1)
+              : null,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -26,7 +26,7 @@ class CarApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'SU7 Control',
+        title: 'AUTOFLUX',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,

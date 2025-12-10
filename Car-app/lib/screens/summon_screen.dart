@@ -12,9 +12,60 @@ class SummonScreen extends StatefulWidget {
   State<SummonScreen> createState() => _SummonScreenState();
 }
 
-class _SummonScreenState extends State<SummonScreen> {
+class _SummonScreenState extends State<SummonScreen>
+    with SingleTickerProviderStateMixin {
   bool _isMovingForward = false;
   bool _isMovingBackward = false;
+  double _carVerticalPosition = 0.0; // Position offset from center
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 100),
+        )..addListener(() {
+          setState(() {
+            if (_isMovingForward) {
+              _carVerticalPosition -= 2.0; // Move up
+              _carVerticalPosition = _carVerticalPosition.clamp(-150.0, 150.0);
+            } else if (_isMovingBackward) {
+              _carVerticalPosition += 2.0; // Move down
+              _carVerticalPosition = _carVerticalPosition.clamp(-150.0, 150.0);
+            }
+          });
+          if (_isMovingForward || _isMovingBackward) {
+            _animationController.forward(from: 0);
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _startMoving(bool forward) {
+    setState(() {
+      if (forward) {
+        _isMovingForward = true;
+      } else {
+        _isMovingBackward = true;
+      }
+    });
+    _animationController.repeat();
+  }
+
+  void _stopMoving() {
+    setState(() {
+      _isMovingForward = false;
+      _isMovingBackward = false;
+    });
+    _animationController.stop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +166,14 @@ class _SummonScreenState extends State<SummonScreen> {
                       ),
                     ),
 
-                    // Car Icon in Center
-                    Center(
+                    // Car Icon - Now Animated
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 100),
+                      top:
+                          (MediaQuery.of(context).size.height * 0.4) +
+                          _carVerticalPosition,
+                      left: 0,
+                      right: 0,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -139,10 +196,10 @@ class _SummonScreenState extends State<SummonScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.directions_car,
                               size: 40,
-                              color: Color(0xFFE82127),
+                              color: const Color(0xFFE82127),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -159,9 +216,13 @@ class _SummonScreenState extends State<SummonScreen> {
                               ),
                             ),
                             child: Text(
-                              'READY TO SUMMON',
+                              (_isMovingForward || _isMovingBackward)
+                                  ? 'MOVING...'
+                                  : 'READY TO SUMMON',
                               style: AppTextStyles.heading3.copyWith(
-                                color: const Color(0xFF64FFDA),
+                                color: (_isMovingForward || _isMovingBackward)
+                                    ? const Color(0xFFFF9800)
+                                    : const Color(0xFF64FFDA),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.5,
@@ -263,7 +324,7 @@ class _SummonScreenState extends State<SummonScreen> {
                     Expanded(
                       child: GestureDetector(
                         onLongPressStart: (_) {
-                          setState(() => _isMovingForward = true);
+                          _startMoving(true);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -272,27 +333,58 @@ class _SummonScreenState extends State<SummonScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              backgroundColor: Colors.blue[700],
-                              duration: const Duration(seconds: 2),
+                              backgroundColor: const Color(0xFF64FFDA),
+                              duration: const Duration(seconds: 1),
                             ),
                           );
                         },
                         onLongPressEnd: (_) {
-                          setState(() => _isMovingForward = false);
+                          _stopMoving();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Stopped',
+                                style: AppTextStyles.body1.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              backgroundColor: Colors.grey[700],
+                              duration: const Duration(milliseconds: 500),
+                            ),
+                          );
                         },
                         child: Container(
                           height: 100,
                           decoration: BoxDecoration(
+                            gradient: _isMovingForward
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF64FFDA),
+                                      Color(0xFF14B8A6),
+                                    ],
+                                  )
+                                : null,
                             color: _isMovingForward
-                                ? Colors.blue[700]
+                                ? null
                                 : const Color(0xFF1a1a1a),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: _isMovingForward
-                                  ? Colors.blue[400]!
-                                  : Colors.grey[800]!,
+                                  ? const Color(0xFF64FFDA)
+                                  : const Color(0xFF2a2a2a),
                               width: 2,
                             ),
+                            boxShadow: _isMovingForward
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF64FFDA,
+                                      ).withOpacity(0.5),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -327,7 +419,7 @@ class _SummonScreenState extends State<SummonScreen> {
                     Expanded(
                       child: GestureDetector(
                         onLongPressStart: (_) {
-                          setState(() => _isMovingBackward = true);
+                          _startMoving(false);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -336,27 +428,58 @@ class _SummonScreenState extends State<SummonScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              backgroundColor: Colors.orange[700],
-                              duration: const Duration(seconds: 2),
+                              backgroundColor: const Color(0xFFFF9800),
+                              duration: const Duration(seconds: 1),
                             ),
                           );
                         },
                         onLongPressEnd: (_) {
-                          setState(() => _isMovingBackward = false);
+                          _stopMoving();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Stopped',
+                                style: AppTextStyles.body1.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              backgroundColor: Colors.grey[700],
+                              duration: const Duration(milliseconds: 500),
+                            ),
+                          );
                         },
                         child: Container(
                           height: 100,
                           decoration: BoxDecoration(
+                            gradient: _isMovingBackward
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF9800),
+                                      Color(0xFFF57C00),
+                                    ],
+                                  )
+                                : null,
                             color: _isMovingBackward
-                                ? Colors.orange[700]
+                                ? null
                                 : const Color(0xFF1a1a1a),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: _isMovingBackward
-                                  ? Colors.orange[400]!
-                                  : Colors.grey[800]!,
+                                  ? const Color(0xFFFF9800)
+                                  : const Color(0xFF2a2a2a),
                               width: 2,
                             ),
+                            boxShadow: _isMovingBackward
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFFFF9800,
+                                      ).withOpacity(0.5),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,

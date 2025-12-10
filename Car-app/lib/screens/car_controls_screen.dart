@@ -130,27 +130,40 @@ class _CarControlsScreenState extends State<CarControlsScreen>
               ),
               _buildQuickActionCard(
                 'All Doors',
-                'Close',
-                Icons.lock,
-                Colors.red,
-                () => car.closeAllDoors(),
+                car.doorFL || car.doorFR || car.doorRL || car.doorRR
+                    ? 'Close'
+                    : 'Open',
+                car.doorFL || car.doorFR || car.doorRL || car.doorRR
+                    ? Icons.lock
+                    : Icons.lock_open,
+                car.doorFL || car.doorFR || car.doorRL || car.doorRR
+                    ? Colors.red
+                    : Colors.grey,
+                () {
+                  if (car.doorFL || car.doorFR || car.doorRL || car.doorRR) {
+                    car.closeAllDoors();
+                  } else {
+                    car.openAllDoors();
+                  }
+                },
               ),
               _buildQuickActionCard(
                 'Sunroof',
-                car.sunroofPosition > 0 || car.sunroofTilted ? 'Close' : 'Tilt',
+                car.sunroofPosition > 0 || car.sunroofTilted ? 'Close' : 'Open',
                 car.sunroofPosition > 0 || car.sunroofTilted
                     ? Icons.close
-                    : Icons.arrow_upward,
+                    : Icons.open_in_full,
                 car.sunroofPosition > 0 || car.sunroofTilted
                     ? Colors.blue
                     : Colors.grey,
                 () {
-                  if (car.sunroofPosition > 0) {
+                  if (car.sunroofPosition > 0 || car.sunroofTilted) {
                     car.setSunroofPosition(0);
-                  } else if (car.sunroofTilted) {
-                    car.toggleSunroofTilt();
+                    if (car.sunroofTilted) {
+                      car.toggleSunroofTilt();
+                    }
                   } else {
-                    car.toggleSunroofTilt();
+                    car.setSunroofPosition(50);
                   }
                 },
               ),
