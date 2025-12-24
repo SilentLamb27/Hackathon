@@ -7,6 +7,9 @@ import '../providers/car_provider.dart';
 import '../services/location_service.dart';
 import '../utils/app_design_system.dart';
 
+import '../services/accident_detection_service.dart';
+import '../services/emergency_notifier.dart';
+
 /// Advanced Emergency & Crash Detection Screen
 /// Real-time emergency response with comprehensive visualization,
 /// traffic routing, emergency messaging, and direct calling
@@ -22,19 +25,25 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   int _secondsElapsed = 0;
   bool _driverConscious = true;
   bool _trafficReroutingActive = false;
-  late final CarProvider _carProvider;
+  CarProvider? _carProvider;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _simulateEmergencySequence();
-    _startTimer();
+    // Defer simulation and timer start until provider is available
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _carProvider = Provider.of<CarProvider>(context, listen: false);
+    // Initialize provider and start one-time tasks once
+    if (!_initialized) {
+      _carProvider = Provider.of<CarProvider>(context, listen: false);
+      _simulateEmergencySequence();
+      _startTimer();
+      _initialized = true;
+    }
   }
 
   void _startTimer() {
@@ -47,8 +56,12 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   }
 
   void _simulateEmergencySequence() async {
-    _addEvent('IMPACT DETECTED - Severe crash detected', EventType.critical);
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Simulate accident detection
+    bool accident = AccidentDetectionService.detectAccident(acceleration: -10.0, impactForce: 20.0);
+    if (accident) {
+      _addEvent('IMPACT DETECTED - Severe crash detected', EventType.critical);
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
 
     _addEvent('Analyzing crash severity...', EventType.system);
     await Future.delayed(const Duration(milliseconds: 1000));
@@ -111,8 +124,10 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
 
     _addEvent('Notifying emergency contacts...', EventType.info);
     await Future.delayed(const Duration(milliseconds: 800));
-
-    for (var contact in _carProvider.emergencyContacts) {
+    // Notify emergency contacts with location (for demo, use static location)
+    await EmergencyNotifier.notifyEmergencyContacts(context, location: '3.1587°N, 101.7123°E');
+    final contacts = _carProvider?.emergencyContacts ?? [];
+    for (var contact in contacts) {
       _addEvent(
         '📞 Calling ${contact.name} (${contact.relationship})',
         EventType.info,

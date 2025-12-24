@@ -6,6 +6,7 @@ import '../models/registered_kad.dart';
 import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/qr_service.dart';
+// Touched to force rebuild - no functional change
 
 enum AccessType { owner, guest, none }
 
@@ -37,6 +38,15 @@ class CarProvider extends ChangeNotifier {
   final double _batteryLevel = 0.85; // 85%
   final int _rangeKm = 420;
   final double _chargingRate = 50; // kW
+
+  // Predictive Maintenance Properties
+  double _engineTemp = 90.0;
+  double _batteryHealth = 100.0;
+  double _tirePressure = 35.0;
+  double _mileage = 12543.0;
+  DateTime _lastServiceDate = DateTime.now().subtract(
+    const Duration(days: 100),
+  );
 
   // Car Controls - Basic
   bool _acOn = false;
@@ -118,6 +128,13 @@ class CarProvider extends ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   AccessType get accessType => _accessType;
   DateTime? get accessExpiry => _accessExpiry;
+
+  // Predictive Maintenance Getters
+  double get engineTemp => _engineTemp;
+  double get batteryHealth => _batteryHealth;
+  double get tirePressure => _tirePressure;
+  double get mileage => _mileage;
+  DateTime get lastServiceDate => _lastServiceDate;
   String? get currentUserKad => _currentUserKad;
 
   // Getters - Emergency
@@ -239,24 +256,15 @@ class CarProvider extends ChangeNotifier {
     _currentUserKad = kadNumber;
 
     // Check if this KAD is registered
-    final existingKad = _registeredKads.firstWhere(
-      (kad) => kad.kadNumber == kadNumber,
-      orElse: () => RegisteredKad(
-        kadNumber: '',
-        ownerName: '',
-        dateOfBirth: DateTime.now(), // Placeholder for non-existent KAD
-        firstRegistered: DateTime.now(),
-        lastAccessed: DateTime.now(),
-        isOwner: false,
-      ),
-    );
-
-    if (existingKad.kadNumber.isEmpty) {
+    final matching = _registeredKads.where((kad) => kad.kadNumber == kadNumber);
+    if (matching.isEmpty) {
       // First time scanning this KAD - needs registration
       return false; // Caller should handle registration flow
     }
 
-    // Update last accessed
+    final existingKad = matching.first;
+
+    // Update last accessed and access count
     final updatedKad = existingKad.copyWith(
       lastAccessed: DateTime.now(),
       accessCount: existingKad.accessCount + 1,
@@ -267,6 +275,14 @@ class CarProvider extends ChangeNotifier {
         .toList();
 
     await StorageService.saveRegisteredKads(_registeredKads);
+
+    // If this KAD is the owner, grant owner access
+    if (existingKad.isOwner || _ownerKadNumber == kadNumber) {
+      _ownerKadNumber ??= kadNumber;
+      _accessType = AccessType.owner;
+      _accessExpiry = null;
+      _isLocked = false;
+    }
 
     _isAuthenticated = true;
     notifyListeners();
@@ -285,6 +301,17 @@ class CarProvider extends ChangeNotifier {
       throw Exception('Invalid MyKAD number format');
     }
 
+    // Prevent duplicate registration
+    if (_registeredKads.any((k) => k.kadNumber == kadNumber)) {
+      throw Exception('This MyKAD is already registered');
+    }
+
+    // If attempting to set owner when an owner already exists, require transfer
+    if (isOwner && _ownerKadNumber != null && _ownerKadNumber != kadNumber) {
+      throw Exception(
+          'An owner is already set. Use transferOwner() to change the car owner.');
+    }
+
     final kad = RegisteredKad(
       kadNumber: kadNumber,
       ownerName: name,
@@ -292,15 +319,19 @@ class CarProvider extends ChangeNotifier {
       firstRegistered: DateTime.now(),
       lastAccessed: DateTime.now(),
       isOwner: isOwner,
+      accessCount: 1,
     );
 
     _registeredKads.add(kad);
     await StorageService.saveRegisteredKads(_registeredKads);
 
-    // If this is the owner, save as car owner
-    if (isOwner && _ownerKadNumber == null) {
+    // If this is the owner, save as car owner and grant owner access
+    if (isOwner) {
       _ownerKadNumber = kadNumber;
       await StorageService.setCarOwnerKad(kadNumber);
+      _accessType = AccessType.owner;
+      _accessExpiry = null;
+      _isLocked = false;
     }
 
     _isAuthenticated = true;
@@ -318,12 +349,39 @@ class CarProvider extends ChangeNotifier {
     return kadNumber == _ownerKadNumber;
   }
 
+  /// Transfer ownership to another registered KAD.
+  /// Throws if the new owner is not registered.
+  Future<void> transferOwner(String newKadNumber) async {
+    if (_ownerKadNumber == newKadNumber) return;
+
+    final exists = _registeredKads.any((k) => k.kadNumber == newKadNumber);
+    if (!exists) {
+      throw Exception('New owner must be a registered MyKAD');
+    }
+
+    final previousOwner = _ownerKadNumber;
+    _ownerKadNumber = newKadNumber;
+    await StorageService.setCarOwnerKad(newKadNumber);
+
+    _registeredKads = _registeredKads.map((k) {
+      if (k.kadNumber == newKadNumber) return k.copyWith(isOwner: true);
+      if (k.kadNumber == previousOwner) return k.copyWith(isOwner: false);
+      return k;
+    }).toList();
+
+    await StorageService.saveRegisteredKads(_registeredKads);
+    notifyListeners();
+  }
+
   // ========== ACCESS CONTROL ==========
 
   void grantOwnerAccess() {
     _accessType = AccessType.owner;
     _accessExpiry = null; // No expiry for owner
     _isLocked = false;
+    _isAuthenticated = true;
+    // Set current user to owner KAD if available
+    if (_ownerKadNumber != null) _currentUserKad = _ownerKadNumber;
     notifyListeners();
   }
 

@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/car_provider.dart';
 import '../services/location_service.dart';
 import '../utils/app_design_system.dart';
+import '../utils/error_handler.dart';
+import '../utils/haptic_feedback_service.dart';
 
 /// GPS Tracking Screen
 /// Shows current location and map integration
@@ -17,6 +19,22 @@ class GpsTrackingScreen extends StatefulWidget {
 
 class _GpsTrackingScreenState extends State<GpsTrackingScreen> {
   bool _mapError = false;
+  bool _isRefreshing = false;
+
+  Future<T?> _runWithLoading<T>({
+    required String message,
+    required Future<T> Function() operation,
+    String? errorMessage,
+  }) async {
+    setState(() => _isRefreshing = true);
+    final result = await ErrorHandler.handleAsync(
+      context,
+      operation,
+      errorMessage: errorMessage ?? 'Failed to perform action',
+    );
+    setState(() => _isRefreshing = false);
+    return result;
+  }
 
   @override
   void initState() {
@@ -26,14 +44,30 @@ class _GpsTrackingScreenState extends State<GpsTrackingScreen> {
 
   Future<void> _refreshLocation() async {
     final car = Provider.of<CarProvider>(context, listen: false);
-    await car.refreshLocation();
+    await _runWithLoading<void>(
+      message: 'Refreshing location...',
+      operation: () => car.refreshLocation(),
+      errorMessage: 'Failed to refresh location',
+    );
   }
 
   Future<void> _openInMaps(Position position) async {
+    HapticFeedbackService.selection();
     final url = LocationService.getGoogleMapsUrl(position);
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final launched = await _runWithLoading<bool>(
+      message: 'Opening maps...',
+      operation: () async {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+          return true;
+        }
+        return false;
+      },
+      errorMessage: 'Unable to open maps link',
+    );
+    if (launched == false && mounted) {
+      ErrorHandler.showError(context, 'Could not open map link');
     }
   }
 
@@ -64,6 +98,13 @@ class _GpsTrackingScreenState extends State<GpsTrackingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_isRefreshing)
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  color: Colors.tealAccent,
+                  backgroundColor: Colors.transparent,
+                ),
+              const SizedBox(height: 12),
               // Location Status
               Container(
                 padding: const EdgeInsets.all(20),

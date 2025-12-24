@@ -4,6 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/car_provider.dart';
 import '../models/registered_kad.dart';
 import '../utils/app_design_system.dart';
+import '../utils/error_handler.dart';
+import '../utils/haptic_feedback_service.dart';
+import '../constants/app_constants.dart';
 import '../widgets/autoflux_logo.dart';
 import 'dashboard_screen.dart';
 import 'access_control_screen.dart';
@@ -21,6 +24,19 @@ class _LockScreenState extends State<LockScreen> {
   String? _scanMessage;
   bool _showOwnerOptions = false;
   bool _showGuestQrScanner = false;
+
+  Future<T?> _runWithLoading<T>({
+    required String message,
+    required Future<T> Function() operation,
+    String? errorMessage,
+  }) async {
+    return ErrorHandler.handleAsyncWithLoading(
+      context,
+      operation,
+      loadingMessage: message,
+      errorMessage: errorMessage,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -358,9 +374,15 @@ class _LockScreenState extends State<LockScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedbackService.medium();
+          onTap();
+        },
+        child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 28),
         decoration: BoxDecoration(
@@ -403,6 +425,7 @@ class _LockScreenState extends State<LockScreen> {
             ),
           ],
         ),
+        ),
       ),
     ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.2);
   }
@@ -428,12 +451,16 @@ class _LockScreenState extends State<LockScreen> {
 
     // Check if scanned KAD is the owner
     final ownerKad = car.registeredKads.firstWhere((kad) => kad.isOwner);
-    final isOwner = await car.scanMyKad(
-      mockKadNumber: ownerKad.kadNumber,
-      mockName: ownerKad.name,
+    final isOwner = await _runWithLoading<bool>(
+      message: 'Scanning MyKAD...',
+      operation: () => car.scanMyKad(
+        mockKadNumber: ownerKad.kadNumber,
+        mockName: ownerKad.name,
+      ),
+      errorMessage: 'Failed to scan MyKAD. Please try again.',
     );
 
-    if (isOwner) {
+    if (isOwner == true) {
       car.grantOwnerAccess();
       setState(() {
         _scanMessage = 'Welcome Back, ${ownerKad.name}!';
@@ -489,8 +516,8 @@ class _LockScreenState extends State<LockScreen> {
       age--;
     }
 
-    // Verify minimum driving age (18 in Malaysia)
-    if (age < 18) {
+    // Verify minimum driving age
+    if (age < AppConstants.minDrivingAge) {
       setState(() {
         _isScanning = false;
         _scanMessage = 'Access Denied: Must be 18+ to drive';
@@ -507,11 +534,16 @@ class _LockScreenState extends State<LockScreen> {
 
     await Future.delayed(const Duration(seconds: 1));
 
-    await car.registerKad(
-      kadNumber: mockKadNumber,
-      name: mockName,
-      isOwner: true,
+    final registerResult = await _runWithLoading<void>(
+      message: 'Registering owner...',
+      operation: () => car.registerKad(
+        kadNumber: mockKadNumber,
+        name: mockName,
+        isOwner: true,
+      ),
+      errorMessage: 'Failed to register owner. Please try again.',
     );
+    // No need to check for null, since registerKad returns void. Errors are handled by _runWithLoading.
 
     car.grantOwnerAccess();
 
@@ -716,8 +748,8 @@ class _LockScreenState extends State<LockScreen> {
       age--;
     }
 
-    // Verify minimum driving age (18 in Malaysia)
-    if (age < 18) {
+    // Verify minimum driving age
+    if (age < AppConstants.minDrivingAge) {
       setState(() {
         _isScanning = false;
         _scanMessage = 'Access Denied: Must be 18+ to drive';
@@ -735,7 +767,12 @@ class _LockScreenState extends State<LockScreen> {
     await Future.delayed(const Duration(seconds: 1));
 
     // Create new access with default 7 days
-    await car.createGuestAccess(guestName: name, durationDays: 7);
+    final accessResult = await _runWithLoading<void>(
+      message: 'Creating guest access...',
+      operation: () => car.createGuestAccess(guestName: name, durationDays: 7),
+      errorMessage: 'Failed to create guest access. Please try again.',
+    );
+    // No need to check for null, since createGuestAccess returns a value or throws. Errors are handled by _runWithLoading.
 
     car.grantGuestAccess(7);
 
@@ -784,8 +821,8 @@ class _LockScreenState extends State<LockScreen> {
       age--;
     }
 
-    // Verify minimum driving age (18 in Malaysia)
-    if (age < 18) {
+    // Verify minimum driving age
+    if (age < AppConstants.minDrivingAge) {
       setState(() {
         _isScanning = false;
         _scanMessage = 'Access Denied: Must be 18+ to drive';
@@ -803,7 +840,12 @@ class _LockScreenState extends State<LockScreen> {
     await Future.delayed(const Duration(seconds: 1));
 
     // Create access with duration from QR (default 7 days)
-    await car.createGuestAccess(guestName: name, durationDays: 7);
+    final accessResult = await _runWithLoading<void>(
+      message: 'Creating guest access...',
+      operation: () => car.createGuestAccess(guestName: name, durationDays: 7),
+      errorMessage: 'Failed to create guest access. Please try again.',
+    );
+    // No need to check for null, since createGuestAccess returns a value or throws. Errors are handled by _runWithLoading.
 
     car.grantGuestAccess(7);
 

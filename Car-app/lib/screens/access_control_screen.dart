@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/car_provider.dart';
+import '../utils/error_handler.dart';
+import '../utils/haptic_feedback_service.dart';
+import '../constants/app_constants.dart';
 
 /// Access Control Screen
 /// Manage MyKAD registrations and guest access
@@ -15,6 +18,22 @@ class AccessControlScreen extends StatefulWidget {
 
 class _AccessControlScreenState extends State<AccessControlScreen> {
   int _currentTab = 0;
+  bool _isLoading = false;
+
+  Future<T?> _runWithLoading<T>({
+    required String message,
+    required Future<T> Function() operation,
+    String? errorMessage,
+  }) async {
+    setState(() => _isLoading = true);
+    final result = await ErrorHandler.handleAsync(
+      context,
+      operation,
+      errorMessage: errorMessage,
+    );
+    setState(() => _isLoading = false);
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +45,12 @@ class _AccessControlScreenState extends State<AccessControlScreen> {
       ),
       body: Column(
         children: [
+          if (_isLoading)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              color: Color(0xFF64FFDA),
+              backgroundColor: Colors.transparent,
+            ),
           // Tab Bar
           Container(
             color: Colors.grey[900],
@@ -160,8 +185,87 @@ class _MyKADManagement extends StatelessWidget {
         const SizedBox(height: 24),
 
         ElevatedButton.icon(
-          onPressed: () {
-            // Scan new MyKAD
+          onPressed: () async {
+            HapticFeedbackService.selection();
+            final parentState =
+                context.findAncestorStateOfType<_AccessControlScreenState>();
+            final car = Provider.of<CarProvider>(context, listen: false);
+
+            final scanned = await parentState?._runWithLoading<bool>(
+              message: 'Scanning MyKAD...',
+              operation: () => car.scanMyKad(),
+              errorMessage: 'Failed to scan MyKAD',
+            );
+
+            if (scanned == false) {
+              // Show registration dialog
+              final nameController = TextEditingController();
+              bool isOwner = false;
+              await showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: Colors.grey[900],
+                  title: const Text('Register MyKAD', style: TextStyle(color: Colors.white)),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Full name',
+                          labelStyle: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      StatefulBuilder(
+                        builder: (ctx, setState) => CheckboxListTile(
+                          title: const Text('Set as owner', style: TextStyle(color: Colors.white)),
+                          value: isOwner,
+                          onChanged: (v) => setState(() => isOwner = v ?? false),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          activeColor: const Color(0xFF64FFDA),
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (nameController.text.trim().isEmpty) return;
+                        Navigator.pop(ctx);
+                        await parentState?._runWithLoading<void>(
+                          message: 'Registering MyKAD...',
+                          operation: () => car.registerKad(
+                            kadNumber: car.currentUserKad ?? '950123-01-5678',
+                            name: nameController.text.trim(),
+                            isOwner: isOwner,
+                          ),
+                          errorMessage: 'Failed to register MyKAD',
+                        );
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('MyKAD registered')),
+                          );
+                        }
+                      },
+                      child: const Text('Register'),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('MyKAD scanned and authenticated')),
+                );
+              }
+            }
           },
           icon: const Icon(Icons.qr_code_scanner),
           label: const Text('Scan New MyKAD'),
@@ -184,6 +288,7 @@ class _GuestAccessManagement extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final car = Provider.of<CarProvider>(context);
+    final state = context.findAncestorStateOfType<_AccessControlScreenState>();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -248,8 +353,13 @@ class _GuestAccessManagement extends StatelessWidget {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {
-                  car.revokeGuestAccess(access.id);
+                onPressed: () async {
+                  HapticFeedbackService.selection();
+                  await state?._runWithLoading<void>(
+                    message: 'Revoking access...',
+                    operation: () => car.revokeGuestAccess(access.id),
+                    errorMessage: 'Failed to revoke guest access',
+                  );
                 },
               ),
               children: [
@@ -350,12 +460,27 @@ class _GuestAccessManagement extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
+                  HapticFeedbackService.medium();
                   final car = Provider.of<CarProvider>(context, listen: false);
-                  await car.createGuestAccess(
-                    guestName: nameController.text,
-                    durationDays: durationDays,
+                  final parentState = context
+                      .findAncestorStateOfType<_AccessControlScreenState>();
+                  final result = await parentState?._runWithLoading<void>(
+                    message: 'Creating guest access...',
+                    operation: () => car.createGuestAccess(
+                      guestName: nameController.text,
+                      durationDays: durationDays,
+                    ),
+                    errorMessage: 'Failed to create guest access',
                   );
-                  Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Guest access created'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(

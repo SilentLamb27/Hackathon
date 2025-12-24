@@ -15,6 +15,11 @@ import 'gps_tracking_screen.dart';
 import 'emergency_screen.dart';
 import 'rfid_toll_screen.dart';
 
+import '../models/predictive_maintenance.dart';
+import '../widgets/predictive_maintenance_widget.dart';
+
+import '../widgets/voice_assistant_widget.dart';
+
 /// Tesla-Style Dashboard
 /// Minimalist dark interface with car focus
 class DashboardScreen extends StatelessWidget {
@@ -55,6 +60,35 @@ class DashboardScreen extends StatelessWidget {
 
             // Status Text
             _buildStatusText(car),
+
+            // Predictive Maintenance Widget
+            PredictiveMaintenanceWidget(
+              data: PredictiveMaintenanceModel(
+                engineTemp: car.engineTemp ?? 90,
+                batteryHealth: car.batteryHealth ?? 100,
+                tirePressure: car.tirePressure ?? 32,
+                mileage: car.mileage ?? 0,
+                lastServiceDate:
+                    car.lastServiceDate ??
+                    DateTime.now().subtract(const Duration(days: 100)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Voice Assistant Widget
+            VoiceAssistantWidget(
+              onCommandRecognized: (command) {
+                // Example: handle recognized commands
+                if (command.toLowerCase().contains('climate')) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ClimateScreen()),
+                  );
+                }
+                // Add more command handling as needed
+              },
+            ),
+            const SizedBox(height: 16),
 
             const SizedBox(height: 24),
 
