@@ -3,7 +3,8 @@ import 'package:google_speech/google_speech.dart';
 
 class VoiceAssistantWidget extends StatefulWidget {
   final void Function(String command) onCommandRecognized;
-  const VoiceAssistantWidget({Key? key, required this.onCommandRecognized}) : super(key: key);
+  const VoiceAssistantWidget({Key? key, required this.onCommandRecognized})
+    : super(key: key);
 
   @override
   State<VoiceAssistantWidget> createState() => _VoiceAssistantWidgetState();

@@ -210,7 +210,9 @@ class StorageService {
 
   /// Import data from a JSON string. This will overwrite existing keys present
   /// in the payload. Returns StorageResult indicating success/failure.
-  static Future<StorageResult<void>> importAllDataFromJson(String jsonString) async {
+  static Future<StorageResult<void>> importAllDataFromJson(
+    String jsonString,
+  ) async {
     try {
       final Map<String, dynamic> obj = json.decode(jsonString);
 

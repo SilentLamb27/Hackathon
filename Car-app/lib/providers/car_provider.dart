@@ -309,7 +309,8 @@ class CarProvider extends ChangeNotifier {
     // If attempting to set owner when an owner already exists, require transfer
     if (isOwner && _ownerKadNumber != null && _ownerKadNumber != kadNumber) {
       throw Exception(
-          'An owner is already set. Use transferOwner() to change the car owner.');
+        'An owner is already set. Use transferOwner() to change the car owner.',
+      );
     }
 
     final kad = RegisteredKad(

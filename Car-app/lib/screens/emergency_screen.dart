@@ -57,7 +57,10 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
 
   void _simulateEmergencySequence() async {
     // Simulate accident detection
-    bool accident = AccidentDetectionService.detectAccident(acceleration: -10.0, impactForce: 20.0);
+    bool accident = AccidentDetectionService.detectAccident(
+      acceleration: -10.0,
+      impactForce: 20.0,
+    );
     if (accident) {
       _addEvent('IMPACT DETECTED - Severe crash detected', EventType.critical);
       await Future.delayed(const Duration(milliseconds: 500));
@@ -125,7 +128,10 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     _addEvent('Notifying emergency contacts...', EventType.info);
     await Future.delayed(const Duration(milliseconds: 800));
     // Notify emergency contacts with location (for demo, use static location)
-    await EmergencyNotifier.notifyEmergencyContacts(context, location: '3.1587°N, 101.7123°E');
+    await EmergencyNotifier.notifyEmergencyContacts(
+      context,
+      location: '3.1587°N, 101.7123°E',
+    );
     final contacts = _carProvider?.emergencyContacts ?? [];
     for (var contact in contacts) {
       _addEvent(
